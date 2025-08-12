@@ -10,7 +10,7 @@
   <video id="remoteVideo" autoplay playsinline style="width: 45%;"></video>
 
   <script>
-    const signalingServerUrl = 'ws://116.110.40.80:8080'; // <- Replace this
+    const signalingServerUrl = 'ws://192.168.1.11:8080'; // <- Replace this
 
     const ws = new WebSocket(signalingServerUrl);
     const localVideo = document.getElementById('localVideo');
@@ -75,3 +75,4 @@
   </script>
 </body>
 </html>
+
