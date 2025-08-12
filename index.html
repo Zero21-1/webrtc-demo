@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple WebRTC Video Stream</title>
+</head>
+<body>
+  <h2>Simple WebRTC Video Stream</h2>
+
+  <video id="localVideo" autoplay playsinline muted style="width: 45%;"></video>
+  <video id="remoteVideo" autoplay playsinline style="width: 45%;"></video>
+
+  <script>
+    const signalingServerUrl = 'ws://116.110.40.80:8080'; // <- Replace this
+
+    const ws = new WebSocket(signalingServerUrl);
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    let localStream;
+    let peerConnection;
+
+    const config = {
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    };
+
+    ws.onmessage = async (message) => {
+      const data = JSON.parse(message.data);
+
+      if (data.offer) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        ws.send(JSON.stringify({ answer }));
+      } else if (data.answer) {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      } else if (data.candidate) {
+        try {
+          await peerConnection.addIceCandidate(data.candidate);
+        } catch (e) {
+          console.error('Error adding received ICE candidate', e);
+        }
+      }
+    };
+
+    async function start() {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      localVideo.srcObject = localStream;
+
+      peerConnection = new RTCPeerConnection(config);
+
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          ws.send(JSON.stringify({ candidate: event.candidate }));
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+      };
+
+      peerConnection.onnegotiationneeded = async () => {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        ws.send(JSON.stringify({ offer }));
+      };
+    }
+
+    ws.onopen = () => {
+      start();
+    };
+  </script>
+</body>
+</html>
